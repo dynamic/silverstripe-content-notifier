@@ -1,6 +1,6 @@
 {
     "name":"silverstripe/content-notifier",
-    "type": "silverstripe-module",
+    "type": "silverstripe-vendormodule",
     "description": "Notifies admins of new user-generated content",
     "keywords": ["silverstripe"],
     "license": "BSD-3-Clause",
