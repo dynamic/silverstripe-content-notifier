@@ -9,12 +9,25 @@ use SilverStripe\Dev\BuildTask;
 
 class ContentNotifierTask extends BuildTask
 {
-    private static $segment = 'ContentNotifierTask';
+    /**
+     * @var string
+     */
+    private static string $segment = 'ContentNotifierTask';
 
+    /**
+     * @var string
+     */
     protected $title = 'New and updated content notification task';
 
+    /**
+     * @var string
+     */
     protected $description = 'Collates and sends items to notify users about';
 
+    /**
+     * @param $request
+     * @return void
+     */
     public function run($request)
     {
         $queue = ContentNotifierQueue::get_unnotified();

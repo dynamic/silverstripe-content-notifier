@@ -2,6 +2,7 @@
 
 namespace SilverStripe\ContentNotifier\Model;
 
+use Psr\Container\NotFoundExceptionInterface;
 use SilverStripe\Control\Controller;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\FieldList;
@@ -15,42 +16,60 @@ use UncleCheese\BetterButtons\Actions\BetterButtonLink;
 
 class ContentNotifierQueue extends DataObject
 {
-    private static $db = array(
+    /**
+     * @var array|string[]
+     */
+    private static array $db = [
         'RecordClass' => 'Varchar',
         'RecordID' => 'Int',
         'Event' => "Enum('CREATED,UPDATED')",
-        'HasNotified' => 'Boolean'
-    );
+        'HasNotified' => 'Boolean',
+    ];
 
-    private static $summary_fields = array(
-        'Created' => 'Created.Nice',
+    /**
+     * @var array|string[]
+     */
+    private static array $summary_fields = [
+        'Created.Nice' => 'Created',
         'Event' => 'Event',
         'RecordClass' => 'Content type',
-        'Status' => 'Status'
-    );
+        'Status' => 'Status',
+    ];
 
-    private static $better_buttons_actions = array(
+    /**
+     * @var array|string[]
+     */
+    private static array $better_buttons_actions = [
         'approve',
-        'deny'
-    );
+        'deny',
+    ];
 
-    private static $searchable_fields = array();
+    /**
+     * @var array|string[]
+     */
+    private static array $default_sort = [
+        "Created" => "DESC",
+    ];
 
-    private static $default_sort = "Created DESC";
+    /**
+     * @var string
+     */
+    private static string $table_name = 'ContentNotifierQueue';
 
-    private static $table_name = 'ContentNotifierQueue';
-
-    public static function get_unnotified()
+    /**
+     * @return DataList
+     */
+    public static function get_unnotified(): DataList
     {
-        return self::get()->filter(array(
-            'HasNotified' => false
-        ));
+        return self::get()->filter([
+            'HasNotified' => false,
+        ]);
     }
 
     /**
      * @return FieldList
      */
-    public function getCMSFields()
+    public function getCMSFields(): FieldList
     {
         if (!$this->getRecord()) {
             return FieldList::create();
@@ -58,7 +77,7 @@ class ContentNotifierQueue extends DataObject
 
         $fields = $this->getRecord()->getCMSFields();
         $fields->unshift(
-            new LiteralField("stat", "<h3 style='margin-left:10px;'>Status: " . $this->getRecord()->getStatus()."</h3>")
+            LiteralField::create("stat", "<h3 style='margin-left:10px;'>Status: " . $this->getRecord()->getStatus() . "</h3>")
         );
 
         // Create a dummy form so we can get access to loadDataFrom(). :-(
@@ -68,25 +87,43 @@ class ContentNotifierQueue extends DataObject
             ->makeReadonly();
     }
 
-    public function Category()
+    /**
+     * @return string
+     * @throws NotFoundExceptionInterface
+     */
+    public function Category(): string
     {
         return Injector::inst()->get($this->RecordClass)->plural_name();
     }
 
-    public function getRecord()
+    /**
+     * @return DataObject|null
+     * @throws NotFoundExceptionInterface
+     */
+    public function getRecord(): ?DataObject
     {
         $class = Injector::inst()->get($this->RecordClass);
         return DataList::create(get_class($class))->byID($this->RecordID);
     }
 
-    public function getTitle()
+    /**
+     * @return string
+     * @throws NotFoundExceptionInterface
+     */
+    public function getTitle(): string
     {
         if ($this->getRecord()) {
             return "[{$this->RecordClass}] " . $this->getRecord()->getTitle();
         }
+
+        return "";
     }
 
-    public function getBetterButtonsActions()
+    /**
+     * @return FieldList
+     * @throws NotFoundExceptionInterface
+     */
+    public function getBetterButtonsActions(): FieldList
     {
         $fields = parent::getBetterButtonsActions();
         if (!$this->getRecord()) {
@@ -115,47 +152,82 @@ class ContentNotifierQueue extends DataObject
         return $fields;
     }
 
-    public function getStatus()
+    /**
+     * @return string
+     * @throws NotFoundExceptionInterface
+     */
+    public function getStatus(): string
     {
         if ($this->getRecord()) {
             return $this->getRecord()->getStatus();
         }
+
+        return '';
     }
 
-    public function approve()
+    /**
+     * @return string
+     * @throws NotFoundExceptionInterface
+     */
+    public function approve(): string
     {
         if ($this->getRecord()) {
             $this->getRecord()->approve();
 
             return 'Approved for publication';
         }
+
+        return '';
     }
 
-    public function deny()
+    /**
+     * @return string
+     * @throws NotFoundExceptionInterface
+     */
+    public function deny(): string
     {
         if ($this->getRecord()) {
             $this->getRecord()->deny();
 
             return 'Denied for publication';
         }
+
+        return '';
     }
 
-    public function canEdit($member = null)
+    /**
+     * @param $member
+     * @return bool|int
+     */
+    public function canEdit($member = null): bool|int
     {
         return Permission::check("CMS_ACCESS_ContentNotifierAdmin");
     }
 
-    public function canView($member = null)
+    /**
+     * @param $member
+     * @return bool|int
+     */
+    public function canView($member = null): bool|int
     {
         return Permission::check("CMS_ACCESS_ContentNotifierAdmin");
     }
 
-    public function canDelete($member = null)
+    /**
+     * @param $member
+     * @return bool|int
+     */
+    public function canDelete($member = null): bool|int
     {
         return Permission::check("CMS_ACCESS_ContentNotifierAdmin");
     }
 
-    public function canCreate($member = null, $context = [])
+    /**
+     * @param $member
+     * @param $context
+     * @return false
+     */
+    public function canCreate($member = null, $context = []): bool
     {
         return false;
     }

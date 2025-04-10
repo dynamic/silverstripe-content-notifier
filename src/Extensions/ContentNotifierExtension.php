@@ -4,56 +4,90 @@ namespace SilverStripe\ContentNotifier\Extensions;
 
 use RuntimeException;
 use SilverStripe\Admin\LeftAndMain;
-use SilverStripe\Core\ClassInfo;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\ContentNotifier\ContentNotifier;
 use SilverStripe\ContentNotifier\Model\ContentNotifierEmail;
 use SilverStripe\ContentNotifier\Model\ContentNotifierQueue;
 use SilverStripe\Control\Director;
 use SilverStripe\Control\Controller;
-use SilverStripe\ORM\DataExtension;
+use SilverStripe\Core\Extension;
+use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\DataQuery;
+use SilverStripe\ORM\FieldType\DBHTMLText;
 use SilverStripe\ORM\Queries\SQLSelect;
+use SilverStripe\ORM\ValidationException;
 use SilverStripe\Security\Permission;
 use UncleCheese\BetterButtons\Actions\BetterButtonCustomAction;
 
 
-class ContentNotifierExtension extends DataExtension
+class ContentNotifierExtension extends Extension
 {
-    private static $db = array(
-        'ContentNotifierApproved' => 'Boolean'
-    );
+    /**
+     * @var array|string[]
+     */
+    private static array $db = [
+        'ContentNotifierApproved' => 'Boolean',
+    ];
 
-    private static $better_buttons_actions = array(
+    /**
+     * @var array|string[]
+     */
+    private static array $better_buttons_actions = [
         'approve',
-        'deny'
-    );
+        'deny',
+    ];
 
-    protected static $filter_unapproved = true;
+    /**
+     * @var bool
+     */
+    protected static bool $filter_unapproved = true;
 
-    public static function get_extra_config($class, $extension, $args)
+    /**
+     * @param $class
+     * @param $extension
+     * @param $args
+     * @return void
+     */
+    public static function get_extra_config($class, $extension, $args): void
     {
-        if (!ClassInfo::classImplements($class, ContentNotifier::class)) {
-            throw new RuntimeException("$class must implement ContentNotifier to be used by the ContentNotifierExtension");
+        $singleton = $class::singleton();
+
+        if(!$singleton->hasMethod('getContentNotifierExcerpt')){
+            throw new RuntimeException("$class must implement getContentNotifierExcerpt to be used by the ContentNotifierExtension");
+        }
+
+        if(!$singleton->hasMethod('getContentNotifierLink')){
+            throw new RuntimeException("$class must implement getContentNotifierLink to be used by the ContentNotifierExtension");
+        }
+
+        if(!$singleton->hasMethod('getContentNotifierHeadLine')){
+            throw new RuntimeException("$class must implement getContentNotifierHeadLine to be used by the ContentNotifierExtension");
         }
     }
 
-
-    public static function enable_filtering()
+    /**
+     * @return void
+     */
+    public static function enable_filtering(): void
     {
         self::$filter_unapproved = true;
     }
 
-
-    public static function disable_filtering()
+    /**
+     * @return void
+     */
+    public static function disable_filtering(): void
     {
         self::$filter_unapproved = false;
     }
 
-
-    public function updateBetterButtonsActions($actions)
+    /**
+     * @param $actions
+     * @return void
+     */
+    public function updateBetterButtonsActions($actions): void
     {
-        if ($this->owner->ContentNotifierApproved) {
+        /*if ($this->getOwner()->ContentNotifierApproved) {
             $actions->push(new BetterButtonCustomAction(
                 'deny',
                 'Deny'
@@ -63,13 +97,17 @@ class ContentNotifierExtension extends DataExtension
                 'approve',
                 'Approve'
             ));
-        }
+        }*/
     }
 
-    protected function resolve($approved)
+    /**
+     * @param $approved
+     * @return void
+     */
+    protected function resolve($approved): void
     {
-        $this->owner->ContentNotifierApproved = $approved;
-        $this->owner->write();
+        $this->getOwner()->ContentNotifierApproved = $approved;
+        $this->getOwner()->write();
 
         if ($this->getSetting('delete_on_resolve')) {
             if ($object = $this->getQueue()) {
@@ -81,17 +119,21 @@ class ContentNotifierExtension extends DataExtension
     /**
      * Returns the ContentNotifier setting (note: not fully qualified)
      *
-     * @param  string $setting
+     * @param string $setting
      * @return string|false
      */
-    protected function getSetting($setting)
+    protected function getSetting($setting): string|bool
     {
         $config = Config::inst()->get(get_class($this->owner), ContentNotifier::class);
 
-        return isset($config[$setting]) ? $config[$setting] : false;
+        return $config[$setting] ?? false;
     }
 
-    protected function shouldAutoApprove($type)
+    /**
+     * @param $type
+     * @return bool
+     */
+    protected function shouldAutoApprove($type): bool
     {
         $autoApprove = $this->getSetting('auto_approve');
         if ($autoApprove) {
@@ -101,65 +143,84 @@ class ContentNotifierExtension extends DataExtension
         return false;
     }
 
-    public function approve()
+    /**
+     * @return void
+     */
+    public function approve(): void
     {
         $this->resolve(true);
     }
 
-    public function deny()
+    /**
+     * @return void
+     */
+    public function deny(): void
     {
         $this->resolve(false);
     }
 
-    public function EmailSummary()
+    /**
+     * @return DBHTMLText
+     */
+    public function EmailSummary(): DBHTMLText
     {
         $template = $this->getSetting('email_notifier_template') ?: Config::inst()
             ->get(ContentNotifier::class, 'item_template');
 
-        return $this->owner->renderWith($template);
+        return $this->getOwner()->renderWith($template);
     }
 
-    public function getStatus()
+    /**
+     * @return string
+     */
+    public function getStatus(): string
     {
-        return $this->owner->ContentNotifierApproved
+        return $this->getOwner()->ContentNotifierApproved
             ? _t('ContentNotifier.APPROVED', 'APPROVED')
             : _t('ContentNotifier.UNAPPROVED', 'UNAPPROVED');
     }
 
-    public function onBeforeWrite()
+    /**
+     * @return void
+     */
+    public function onBeforeWrite(): void
     {
         // Prevent CMS actions or updates being overridden
         if ($this->checkPermission()) {
-            $this->owner->ContentNotifierApproved = true;
+            $this->getOwner()->ContentNotifierApproved = true;
         }
 
         // If creating a dataobject for the first time, auto-approve if allowed
-        if (!$this->owner->isInDB()) {
-            $this->owner->isCreating = true;
+        if (!$this->getOwner()->isInDB()) {
+            $this->getOwner()->isCreating = true;
 
             // New records can approve themselves
             if ($this->shouldAutoApprove('CREATED')) {
-                $this->owner->ContentNotifierApproved = true;
+                $this->getOwner()->ContentNotifierApproved = true;
             }
 
             return;
         }
 
         // If editing a record, allow auto unapproval
-        if (!$this->owner->isChanged('ContentNotifierApproved')) {
+        if (!$this->getOwner()->isChanged('ContentNotifierApproved')) {
             // Adjust approvel only if not changed explicitly
-            $this->owner->ContentNotifierApproved = $this->shouldAutoApprove('UPDATED');
+            $this->getOwner()->ContentNotifierApproved = $this->shouldAutoApprove('UPDATED');
         }
     }
 
-    public function onAfterWrite()
+    /**
+     * @return void
+     * @throws ValidationException
+     */
+    public function onAfterWrite(): void
     {
         // Trigger events after approval state changes.
-        if ($this->owner->isChanged('ContentNotifierApproved', 2)) {
-            if ($this->owner->ContentNotifierApproved) {
-                $this->owner->invokeWithExtensions('onAfterContentNotifierApprove');
+        if ($this->getOwner()->isChanged('ContentNotifierApproved', DataObject::CHANGE_VALUE)) {
+            if ($this->getOwner()->ContentNotifierApproved) {
+                $this->getOwner()->invokeWithExtensions('onAfterContentNotifierApprove');
             } else {
-                $this->owner->invokeWithExtensions('onAfterContentNotifierUnapprove');
+                $this->getOwner()->invokeWithExtensions('onAfterContentNotifierUnapprove');
             }
         }
 
@@ -168,9 +229,9 @@ class ContentNotifierExtension extends DataExtension
             return;
         }
 
-        if ($this->owner->isCreating) {
+        if ($this->getOwner()->isCreating) {
             $this->createQueue('CREATED');
-        } elseif ($this->owner->isChanged()) {
+        } elseif ($this->getOwner()->isChanged()) {
             // Clear any existing entry
             if ($queue = $this->getQueue('UPDATED')) {
                 $queue->delete();
@@ -185,36 +246,53 @@ class ContentNotifierExtension extends DataExtension
         }
     }
 
-    public function onAfterDelete()
+    /**
+     * @return void
+     */
+    public function onAfterDelete(): void
     {
-        ContentNotifierQueue::get()->filter(array(
+        ContentNotifierQueue::get()->filter([
             'RecordClass' => get_class($this->owner),
-            'RecordID' => $this->owner->ID ?: 0
-        ))->removeAll();
+            'RecordID' => $this->getOwner()->ID ?: 0,
+        ])->removeAll();
     }
 
-    public function augmentSQL(SQLSelect $query, DataQuery $dataQuery = null)
+    /**
+     * @param SQLSelect $query
+     * @param DataQuery|null $dataQuery
+     * @return void
+     */
+    public function augmentSQL(SQLSelect $query, DataQuery $dataQuery = null): void
     {
         if (!$this->checkPermission() && self::$filter_unapproved) {
             $query->addWhere("ContentNotifierApproved = 1");
         }
     }
 
-    protected function createQueue($event)
+    /**
+     * @param $event
+     * @return int
+     * @throws ValidationException
+     */
+    protected function createQueue($event): int
     {
-        return ContentNotifierQueue::create(array(
+        return ContentNotifierQueue::create([
             'RecordClass' => get_class($this->owner),
             'Event' => $event,
-            'RecordID' => $this->owner->ID
-        ))->write();
+            'RecordID' => $this->getOwner()->ID,
+        ])->write();
     }
 
-    public function getQueue($event = null)
+    /**
+     * @param $event
+     * @return ContentNotifierQueue|DataObject|null
+     */
+    public function getQueue($event = null): ContentNotifierQueue|DataObject|null
     {
-        $list = ContentNotifierQueue::get()->filter(array(
+        $list = ContentNotifierQueue::get()->filter([
             'RecordClass' => get_class($this->owner),
-            'RecordID' => $this->owner->ID ?: 0
-        ));
+            'RecordID' => $this->getOwner()->ID ?: 0,
+        ]);
 
         if ($event) {
             $list = $list->filter('Event', $event);
@@ -222,7 +300,10 @@ class ContentNotifierExtension extends DataExtension
         return $list->first();
     }
 
-    protected function checkPermission()
+    /**
+     * @return bool
+     */
+    protected function checkPermission(): bool
     {
         if (Director::is_cli()) {
             return false;

@@ -17,14 +17,17 @@ class ContentNotifierEmail
     use Extensible;
     use Injectable;
     use Configurable;
+
     /**
      * @var Email
      */
     protected $emailer;
+
     /**
      * @var DataList
      */
     protected $records;
+
     public function __construct()
     {
         $this->emailer = Email::create();
@@ -34,16 +37,22 @@ class ContentNotifierEmail
         $this->emailer->setSubject($config->subject);
         $this->emailer->setHTMLTemplate($config->template);
     }
+
     /**
      * @param DataList $list
      * @return $this
      */
-    public function setRecords(DataList $list)
+    public function setRecords(DataList $list): self
     {
         $this->records = $list;
+
         return $this;
     }
-    public function send()
+
+    /**
+     * @return void
+     */
+    public function send(): void
     {
         if (!$this->records) {
             $this->setRecords(ContentNotifierQueue::get_unnotified());

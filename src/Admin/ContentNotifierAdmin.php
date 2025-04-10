@@ -7,13 +7,22 @@ use SilverStripe\ContentNotifier\Model\ContentNotifierQueue;
 
 class ContentNotifierAdmin extends ModelAdmin
 {
-    private static $managed_models = array(
-        ContentNotifierQueue::class => array(
-            'title' => 'Notifications'
-        )
-    );
+    /**
+     * @var array|array[]
+     */
+    private static array $managed_models = [
+        ContentNotifierQueue::class => [
+            'title' => 'Notifications',
+        ],
+    ];
 
-    private static $menu_title = 'Content Notifications';
+    /**
+     * @var string
+     */
+    private static string $menu_title = 'Content Notifications';
 
-    private static $url_segment = 'content-notifications';
+    /**
+     * @var string
+     */
+    private static string $url_segment = 'content-notifications';
 }

@@ -7,12 +7,25 @@ use SilverStripe\Dev\BuildTask;
 
 class ContentNotifierCleanTask extends BuildTask
 {
-    private static $segment = 'ContentNotifierCleanTask';
+    /**
+     * @var string
+     */
+    private static string $segment = 'ContentNotifierCleanTask';
 
+    /**
+     * @var string
+     */
     protected $title = 'Delete records from the ContentNotifier queue';
 
+    /**
+     * @var string
+     */
     protected $description = 'Deletes certain types (or all) of ContentNotifier records from the queue';
 
+    /**
+     * @param $request
+     * @return void
+     */
     public function run($request)
     {
         $action = $request->getVar('action');
